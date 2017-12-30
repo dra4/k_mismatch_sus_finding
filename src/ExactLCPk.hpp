@@ -239,8 +239,11 @@ private:
             assert(tpos < (int32_t)m_klcpXY[tgt][1].size());
             // - update target's LCP, if score is higher
             if(score > m_klcpXY[tgt][1][tpos]){
-                m_klcpXY[tgt][0][tpos] = strPos(uNode, leaves[src_ptr]);
-                m_klcpXY[tgt][1][tpos] = score;
+                int32_t pos = strPos(uNode, leaves[src_ptr]);
+                if(pos != tpos){
+                    m_klcpXY[tgt][0][tpos] = pos;
+                    m_klcpXY[tgt][1][tpos] = score;
+                }
             }
             // - update tgt_ptr; quit if out of bounds
             int32_t prev_tgt = tgt_ptr;
