@@ -44,18 +44,80 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
 
     unsigned size = s.size();
     ivec_t workspace(size, 0);
+    const int32_t NIL = -1;
     // calculate LSUS
     for(unsigned i = 0; i < size; ++i) {
         if(llrk[i] + i == size) {
-            llrk[i] = -1;
+            llrk[i] = NIL;
         } else {
             llrk[i] = llrk[i] + i;
         }
     }
-    ivec_t lsus = llrk;
-    print_values(rdb, lsus, cfg.kv, cfg.ofs, "lsusk");
+    ivec_t lsusk = llrk;
+    print_values(rdb, lsusk, cfg.kv, cfg.ofs, "lsusk");
 
     // calculate SLS
+    int32_t r = size - 1;
+    for(;r >= 0; --r) {
+        if(lsusk[r] != NIL) {
+            break;
+        }
+    }
+
+    if(r < size - 1) {
+        for(int32_t i = r + 1; i < size; ++i) {
+            workspace[i] = NIL;
+        }
+    }
+
+    workspace[0] = NIL;
+
+    for(int32_t i = 1; i <= r; ++i) {
+        int32_t li = lsusk[i] - i;
+        int32_t j = i - 1;
+        while(workspace[j] != NIL && lsusk[j] - j >= li) {
+            j = workspace[j];
+        }
+        if(lsusk[j] - j < li) {
+            workspace[i] = j;
+        } else {
+            workspace[i] = NIL;
+        }
+    }
+    print_values(rdb, workspace, cfg.kv, cfg.ofs, "pred");
+
+    for(int32_t i = 0; i <= r; ++i) {
+        if(workspace[i] == NIL) {
+            workspace[i] = i;
+        } else {
+            int32_t val = lsusk[workspace[i]] + 1;
+            workspace[i] = val > i ? val : i;
+        }
+    }
+    print_values(rdb, workspace, cfg.kv, cfg.ofs, "t");
+
+    for(int32_t i = r; i >= 0; --i) {
+        if(workspace[workspace[i]] == NIL) {
+            workspace[workspace[i]] = i;
+        }
+        if(i < workspace[i]) {
+            workspace[i] = NIL;
+        }
+    }
+
+    print_values(rdb, workspace, cfg.kv, cfg.ofs, "t_1");
+
+    workspace[0] = 0;
+    for(int32_t i = 1; i <= lsusk[r]; ++i) {
+        int32_t prevSls = workspace[i-1];
+        int32_t curT_1 = workspace[i];
+        if(prevSls > curT_1) {
+            workspace[i] = prevSls;
+        } else {
+            workspace[i] = curT_1;
+        }
+    }
+    print_values(rdb, workspace, cfg.kv, cfg.ofs, "slsk");
 
     
     // calculate SUS
