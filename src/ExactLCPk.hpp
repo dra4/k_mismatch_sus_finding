@@ -215,10 +215,10 @@ private:
             return;
         while(true){
             int32_t rmin = 0;
-            int32_t tgt = leaves[tgt_ptr].m_srcStr,
+            int32_t tgt = 0,
                 tpos = strPos(uNode, leaves[tgt_ptr]);
             // - get LCP between src_ptr and tgt_ptr from RMQ
-            rmin = updatePassLCP(leaves[src_ptr], leaves[tgt_ptr]);
+                rmin = updatePassLCP(leaves[src_ptr], leaves[tgt_ptr]);
             int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
 #ifdef DEBUG
             m_aCfg.lfs << "\t[ \""
@@ -236,13 +236,13 @@ private:
             m_aCfg.lfs  << "]," << std::endl;
 #endif
             assert(tpos >= 0);
-            assert(tpos < (int32_t)m_klcpXY[tgt][1].size());
+            assert(tpos < (int32_t)m_klcpXY[0][1].size());
             // - update target's LCP, if score is higher
-            if(score > m_klcpXY[tgt][1][tpos]){
+            if(score > m_klcpXY[0][1][tpos]){
                 int32_t pos = strPos(uNode, leaves[src_ptr]);
                 if(pos != tpos){
-                    m_klcpXY[tgt][0][tpos] = pos;
-                    m_klcpXY[tgt][1][tpos] = score;
+                    m_klcpXY[0][0][tpos] = pos;
+                    m_klcpXY[0][1][tpos] = score;
                 }
             }
             // - update tgt_ptr; quit if out of bounds
