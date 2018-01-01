@@ -7,32 +7,17 @@
 #include "NaiveLCPk.hpp"
 #include "HeuristicLCPk.hpp"
 
-void print_lcpk(const ReadsDB& rdb,
-                const ivec_t lcpKXY[2][2], const unsigned& k,
+void print_values(const ReadsDB& rdb,
+                const ivec_t lcpKXY, const unsigned& k,
                 std::ostream& lfs, const char* key){
-    /* const std::string& sx = rdb.getReadById(i); */
-    /* const std::string& sy = rdb.getReadById(j); */
 
     lfs << "\"" << key << "\"      : {" << std::endl;
-/* #ifdef DEBUG */
-    /* lfs << "   \"meta\" : [" << i << ",\t" << j << ",\t" << sx.size() << ",\t" */
-    /*     << sy.size() << ",\t" << k << "]," << std::endl; */
-/* #endif */
     lfs << "   \"" << rdb.getReadNameById(0)<< "\": [" << std::endl;
-    for(unsigned i = 0; i < lcpKXY[0][0].size(); i++)
+    for(unsigned i = 0; i < lcpKXY.size(); i++)
         lfs << "        "
             << "[" << i
-            << ", " << lcpKXY[0][0][i]
-            << ", " << lcpKXY[0][1][i]
-            << ((i == lcpKXY[0][0].size() - 1) ? "]" : "],\n");
-    /* lfs << "]," << std::endl; */
-    /* lfs << "   \"" << rdb.getReadNameById(j)<< "\": [" << std::endl; */
-    /* for(unsigned i = 0; i < lcpKXY[1][0].size(); i++) */
-    /*     lfs << "        " */
-    /*         << "[" << i */
-    /*         << ", " << lcpKXY[1][0][i] */
-    /*         << ", " << lcpKXY[1][1][i] */
-    /*         << ((i == lcpKXY[1][0].size() - 1) ? "]" : "],\n"); */
+            << ", " << lcpKXY[i]
+            << ((i == lcpKXY.size() - 1) ? "]" : "],\n");
     lfs << "]" << std::endl;
     lfs << "  }," << std::endl;
 
@@ -53,12 +38,28 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
 #ifdef DEBUG
     cfg.lfs << " []]," << std::endl;
 #endif
-#ifndef DEBUG_KLCP
-    print_lcpk(rdb, lxy.getkLCP(), 1, cfg.lfs, "llrk");
-#endif
     cfg.ofs << "{" << std::endl;
-    ivec_t llrk[2][2] = lxy.getkLCP();
-    print_lcpk(rdb, llrk, cfg.kv, cfg.ofs, "llrk");
+    ivec_t llrk = lxy.getkLCP()[0][1];
+    print_values(rdb, llrk, cfg.kv, cfg.ofs, "llrk");
+
+    unsigned size = s.size();
+    ivec_t workspace(size, 0);
+    // calculate LSUS
+    for(unsigned i = 0; i < size; ++i) {
+        if(llrk[i] + i == size) {
+            llrk[i] = -1;
+        } else {
+            llrk[i] = llrk[i] + i;
+        }
+    }
+    ivec_t lsus = llrk;
+    print_values(rdb, lsus, cfg.kv, cfg.ofs, "lsusk");
+
+    // calculate SLS
+
+    
+    // calculate SUS
+    
     cfg.ofs << "  \"end\": []" << std::endl
             << "}" << std::endl;
 
