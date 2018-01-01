@@ -121,6 +121,39 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
 
     
     // calculate SUS
+
+    int32_t z = NIL;
+    for(int32_t i = size - 1; i >= 0; --i) {
+        if(lsusk[i] != NIL) {
+            z = lsusk[i];
+            break;
+        }
+    }
+
+    if(z < size - 1) {
+        for(int32_t i = z + 1; i < size; ++i) {
+            lsusk[i] = NIL;
+        }
+    }
+
+    for(int32_t i = z; i >= 0; --i) {
+        lsusk[i] = lsusk[workspace[i]];
+    }
+
+    for(int32_t i = 1; i < size; --i) {
+        if(workspace[i] == NIL && lsusk[i] == NIL) {
+            workspace[i] = workspace[i - 1];
+            lsusk[i] = lsusk[i-1] + 1;
+        } else if(lsusk[i-1] == i - 1 && ((lsusk[i-1] - workspace[i-1] + 1) < (lsusk[i] - workspace[i] + 1))) {
+            workspace[i] = workspace[i-1];
+            lsusk[i] = lsusk[i-1] + 1;
+        }
+    }
+    print_values(rdb, workspace, cfg.kv, cfg.ofs, "suska");
+    print_values(rdb, lsusk, cfg.kv, cfg.ofs, "suskb");
+
+
+
     
     cfg.ofs << "  \"end\": []" << std::endl
             << "}" << std::endl;
