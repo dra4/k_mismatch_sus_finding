@@ -278,7 +278,7 @@ public:
               AppConfig& cfg);
     void print(std::ostream& ofs);
     void compute();
-    auto getkLCP() -> const ivec_t (&)[2][2] {
+    auto getkLCP() -> ivec_t (&)[2][2] {
         return m_klcpXY;
     }
     void computeTest(int k);

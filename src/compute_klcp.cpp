@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
+#include <ctime>
 
 #include "ExactLCPk.hpp"
 #include "NaiveLCPk.hpp"
@@ -29,6 +30,7 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
     cfg.lfs << "\"klcp_debug\"      : [" << std::endl;
 #endif
     const std::string& s = rdb.getReadById(0);
+    clock_t startTime = clock();
 
     LCPk lxy(s, s, cfg); // construct suffix array
 #ifdef DEBUG
@@ -39,8 +41,9 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
     cfg.lfs << " []]," << std::endl;
 #endif
     cfg.ofs << "{" << std::endl;
-    ivec_t llrk = lxy.getkLCP()[0][1];
-    print_values(rdb, llrk, cfg.kv, cfg.ofs, "llrk");
+    std::cout << "Getting LLRk...\n";
+    ivec_t &llrk = lxy.getkLCP()[0][1];
+    /* print_values(rdb, llrk, cfg.kv, cfg.ofs, "llrk"); */
 
     unsigned size = s.size();
     ivec_t workspace(size, 0);
@@ -53,10 +56,11 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
             llrk[i] = llrk[i] + i;
         }
     }
-    ivec_t lsusk = llrk;
-    print_values(rdb, lsusk, cfg.kv, cfg.ofs, "lsusk");
+    ivec_t &lsusk = llrk;
+    /* print_values(rdb, lsusk, cfg.kv, cfg.ofs, "lsusk"); */
 
     // calculate SLS
+    std::cout << "calculating SLSk...\n";
     int32_t r = size - 1;
     for(;r >= 0; --r) {
         if(lsusk[r] != NIL) {
@@ -84,7 +88,7 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
             workspace[i] = NIL;
         }
     }
-    print_values(rdb, workspace, cfg.kv, cfg.ofs, "pred");
+    /* print_values(rdb, workspace, cfg.kv, cfg.ofs, "pred"); */
 
     for(int32_t i = 0; i <= r; ++i) {
         if(workspace[i] == NIL) {
@@ -94,7 +98,7 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
             workspace[i] = val > i ? val : i;
         }
     }
-    print_values(rdb, workspace, cfg.kv, cfg.ofs, "t");
+    /* print_values(rdb, workspace, cfg.kv, cfg.ofs, "t"); */
 
     for(int32_t i = r; i >= 0; --i) {
         if(workspace[workspace[i]] == NIL) {
@@ -105,7 +109,7 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
         }
     }
 
-    print_values(rdb, workspace, cfg.kv, cfg.ofs, "t_1");
+    /* print_values(rdb, workspace, cfg.kv, cfg.ofs, "t_1"); */
 
     workspace[0] = 0;
     for(int32_t i = 1; i <= lsusk[r]; ++i) {
@@ -117,11 +121,11 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
             workspace[i] = curT_1;
         }
     }
-    print_values(rdb, workspace, cfg.kv, cfg.ofs, "slsk");
+    /* print_values(rdb, workspace, cfg.kv, cfg.ofs, "slsk"); */
 
     
     // calculate SUS
-
+    std::cout << "calculating SUSk...\n";
     int32_t z = NIL;
     for(int32_t i = size - 1; i >= 0; --i) {
         if(lsusk[i] != NIL) {
@@ -149,6 +153,8 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
             lsusk[i] = lsusk[i-1] + 1;
         }
     }
+
+    std::cout << "Seconds: " << double( clock() - startTime ) / ((double)CLOCKS_PER_SEC ) << "\n";
     print_values(rdb, workspace, cfg.kv, cfg.ofs, "suska");
     print_values(rdb, lsusk, cfg.kv, cfg.ofs, "suskb");
 
