@@ -144,11 +144,11 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
         lsusk[i] = lsusk[workspace[i]];
     }
 
-    for(int32_t i = 1; i < size; --i) {
+    for(int32_t i = 1; i < size; ++i) {
         if(workspace[i] == NIL && lsusk[i] == NIL) {
             workspace[i] = workspace[i - 1];
             lsusk[i] = lsusk[i-1] + 1;
-        } else if(lsusk[i-1] == i - 1 && ((lsusk[i-1] - workspace[i-1] + 1) < (lsusk[i] - workspace[i] + 1))) {
+        } else if(lsusk[i-1] == i - 1 && ((lsusk[i-1] - workspace[i-1] + 2) < (lsusk[i] - workspace[i] + 1))) {
             workspace[i] = workspace[i-1];
             lsusk[i] = lsusk[i-1] + 1;
         }
