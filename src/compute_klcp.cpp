@@ -24,6 +24,24 @@ void print_values(const ReadsDB& rdb,
 
 }
 
+void print_a_b(const ivec_t a, const ivec_t b) {
+    std::ofstream ab_out;
+    ab_out.open("alfred_a_b.txt", std::ofstream::out);
+    for(int i = 0; i < a.size(); ++i) {
+        ab_out << a[i] << ", " << b[i] << "\n";
+    }
+    ab_out.close();
+}
+
+void print_b(const ivec_t b) {
+    std::ofstream b_out;
+    b_out.open("alfred_b.txt", std::ofstream::out);
+    for(int i = 0; i < b.size(); ++i) {
+        b_out << b[i] << "\n";
+    }
+    b_out.close();
+}
+
 template<typename LCPk>
 void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
 #ifdef DEBUG
@@ -41,7 +59,7 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
     cfg.lfs << " []]," << std::endl;
 #endif
     cfg.ofs << "{" << std::endl;
-    std::cout << "Getting LLRk...\n";
+    /* std::cout << "Getting LLRk...\n"; */
     ivec_t &llrk = lxy.getkLCP()[0][1];
     /* print_values(rdb, llrk, cfg.kv, cfg.ofs, "llrk"); */
 
@@ -57,10 +75,11 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
         }
     }
     ivec_t &lsusk = llrk;
+    /* print_b(lsusk); */
     /* print_values(rdb, lsusk, cfg.kv, cfg.ofs, "lsusk"); */
 
     // calculate SLS
-    std::cout << "calculating SLSk...\n";
+    /* std::cout << "calculating SLSk...\n"; */
     int32_t r = size - 1;
     for(;r >= 0; --r) {
         if(lsusk[r] != NIL) {
@@ -121,11 +140,12 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
             workspace[i] = curT_1;
         }
     }
+    /* print_b(workspace); */
     /* print_values(rdb, workspace, cfg.kv, cfg.ofs, "slsk"); */
 
     
     // calculate SUS
-    std::cout << "calculating SUSk...\n";
+    /* std::cout << "calculating SUSk...\n"; */
     int32_t z = NIL;
     for(int32_t i = size - 1; i >= 0; --i) {
         if(lsusk[i] != NIL) {
@@ -157,6 +177,7 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
     std::cout << "Seconds: " << double( clock() - startTime ) / ((double)CLOCKS_PER_SEC ) << "\n";
     print_values(rdb, workspace, cfg.kv, cfg.ofs, "suska");
     print_values(rdb, lsusk, cfg.kv, cfg.ofs, "suskb");
+    print_a_b(workspace, lsusk);
 
 
 

@@ -139,7 +139,7 @@ private:
     void chopPrefix0(const InternalNode& uNode,
                      std::vector<L1Suffix>& leaves);
 
-    void updateExactLCPk(InternalNode& uNode, std::vector<L1Suffix>& leaves);
+    void updateExactLCPk(const InternalNode& uNode, const std::vector<L1Suffix>& leaves);
 
     void eliminateDupes(std::vector<InternalNode>& uNodes);
 
@@ -256,7 +256,7 @@ private:
         }
     }
 
-    void computeK(InternalNode& uNode, std::vector<L1Suffix>& uLeaves,
+    void computeK(const InternalNode& uNode, const std::vector<L1Suffix>& uLeaves,
                   int searchLevel);
     void computeK();
     int32_t leftBoundK(const std::vector<L1Suffix>& trieLeaves,
