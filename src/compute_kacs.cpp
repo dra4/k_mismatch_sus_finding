@@ -1,9 +1,7 @@
 #include <cmath>
 #include <iomanip>
 #include "util.hpp"
-#include "NaiveLCPk.hpp"
 #include "ExactLCPk.hpp"
-#include "HeuristicLCPk.hpp"
 
 double correct_term(double xLen){
     if(xLen > 0)
@@ -84,9 +82,9 @@ void kacs_factory(ReadsDB& rdb, AppConfig& cfg){
             const std::string& sy = rdb.getReadById(j);
             double xlen = sx.size(), ylen = sy.size();
             double acsxy, acsyx, kdxy;
-            LCPk lxy(sx, sy, cfg); // construct suffix array
+            LCPk lxy(sx, cfg); // construct suffix array
             lxy.compute();
-            compute_kacs(lxy.getkLCP(), acsxy, acsyx);
+            /* compute_kacs(lxy.getkLCP(), acsxy, acsyx); */
             compute_kdist(xlen, ylen, acsxy, acsyx, kdxy);
             // cfg.ofs << i << "\t" << j << "\t"
             //         << sx.size() << "\t" << sy.size() << "\t"
@@ -103,10 +101,5 @@ void kacs_factory(ReadsDB& rdb, AppConfig& cfg){
 void compute_kacs(ReadsDB& rdb, AppConfig& cfg)
 {
     // estimate k-acs
-    if(cfg.method == 1)
-        kacs_factory<NaiveLCPk>(rdb, cfg);
-    else if(cfg.method == 2)
-        kacs_factory<HeuristicLCPk>(rdb, cfg);
-    else
         kacs_factory<ExactLCPk>(rdb, cfg);
 }

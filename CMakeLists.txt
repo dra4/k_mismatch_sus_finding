@@ -27,7 +27,7 @@ include_directories("${PROJECT_SOURCE_DIR}/src/sdsl")
 ADD_EXECUTABLE(${PROJECT_NAME_STR}.x
                src/sdsl/bits.cpp src/sdsl/construct_sa.cpp
                src/ReadsDB.cpp src/AppConfig.cpp
-               src/ExactLCPk.cpp src/NaiveLCPk.cpp src/HeuristicLCPk.cpp
+               src/ExactLCPk.cpp
                src/compute_klcp.cpp
                src/compute_kacs.cpp src/main.cpp)
 
@@ -46,7 +46,7 @@ file(GLOB TEST_SRC_FILES ${PROJECT_SOURCE_DIR}/test/*.cpp)
 add_executable(${PROJECT_TEST_NAME} ${TEST_SRC_FILES}
                src/sdsl/bits.cpp src/sdsl/construct_sa.cpp
                src/ReadsDB.cpp src/AppConfig.cpp
-               src/ExactLCPk.cpp src/NaiveLCPk.cpp  src/HeuristicLCPk.cpp
+               src/ExactLCPk.cpp
                src/compute_klcp.cpp)
 add_dependencies(${PROJECT_TEST_NAME} gtest gtest_main)
 include_directories(${GTEST_INCLUDE_DIRS})

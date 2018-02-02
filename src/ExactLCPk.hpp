@@ -52,24 +52,22 @@ struct InternalNode{
 struct L1Suffix{
     int32_t m_startPos; // starting position
     int32_t m_errSAPos; // position after one error's SA loc.
-    int32_t m_srcStr;   // source string
 
     bool operator< (const L1Suffix& other) const {
         return( m_errSAPos < other.m_errSAPos );
     }
 
-    L1Suffix(int32_t spos, int32_t epos, int32_t src):
-        m_startPos(spos), m_errSAPos(epos), m_srcStr(src) { }
+    L1Suffix(int32_t spos, int32_t epos):
+        m_startPos(spos), m_errSAPos(epos) { }
 
     L1Suffix(){}
 
     void write(std::ostream& ots, const char *sepStr = "\t") const{
-        ots << m_startPos << sepStr << m_errSAPos << sepStr
-            << m_srcStr;
+        ots << m_startPos << sepStr << m_errSAPos;
     }
 
     void emit(std::ostream& ots) const{
-        ots << m_startPos << "\t" << m_srcStr;
+        ots << m_startPos;
     }
 
     void writeln(std::ostream& ots) const{
@@ -121,12 +119,10 @@ public:
 class ExactLCPk{
 private:
     AppConfig& m_aCfg;
-    int32_t m_strLengths[2];
-    int32_t m_strLenPfx[2];
-    int32_t m_shiftPos[2];
-    std::string m_strXY;
+    int32_t m_strLength;
+    std::string m_str;
     ivec_t m_gsa, m_gisa, m_glcp;
-    ivec_t m_klcpXY[2][2];
+    std::vector<int32_t> m_klcpXY;
     int m_kv;
     double m_nPass;
     double m_passSizes;
@@ -187,12 +183,10 @@ private:
     }
 
     inline int32_t strPos(const InternalNode& uNode, const L1Suffix& sfx){
-        return sfx.m_startPos - uNode.m_delta - m_shiftPos[sfx.m_srcStr];
+        return sfx.m_startPos - uNode.m_delta;
     }
 
-    template<typename BoundChecker, typename NextPointer>
-    void updatePass(int32_t src_ptr, int32_t tgt_ptr,
-                    const int32_t& tgt_bound,
+    void updatePass(const int32_t& tgt_bound,
                     const InternalNode& uNode,
                     const std::vector<L1Suffix>& leaves
 #ifdef DEBUG
@@ -200,59 +194,66 @@ private:
                     const std::string& dbgStr
 #endif
                     ) {
-        BoundChecker bound_check;
-        NextPointer next_ptr;
-        // move the pointer until we reach the first src, target
-        while(bound_check(tgt_ptr, tgt_bound)){
-            if(leaves[tgt_ptr].m_srcStr != leaves[src_ptr].m_srcStr)
-                break;
-            src_ptr = tgt_ptr;
-            next_ptr(tgt_ptr);
-        }
-        // if not within the bounds leave
-        if(!bound_check(tgt_ptr, tgt_bound) ||
-           leaves[tgt_ptr].m_srcStr == leaves[src_ptr].m_srcStr)
-            return;
-        while(true){
+        int32_t tgt_ptr = 0;
+        const int32_t tgt_bound_minus_one = tgt_bound - 1;
+        if(tgt_ptr < tgt_bound_minus_one) {
             int32_t rmin = 0;
-            int32_t tgt = 0,
-                tpos = strPos(uNode, leaves[tgt_ptr]);
+            int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
             // - get LCP between src_ptr and tgt_ptr from RMQ
-                rmin = updatePassLCP(leaves[src_ptr], leaves[tgt_ptr]);
+                rmin = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
             int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
-#ifdef DEBUG
-            m_aCfg.lfs << "\t[ \""
-                       << dbgStr << "\",\t"
-                       << score << ",\t"
-                       << tgt << ",\t"
-                       << tpos << ",\t"
-                       << uNode.m_stringDepth << ",\t"
-                       << uNode.m_delta << ",\t"
-                       << rmin << ",\t"
-                ;
-            leaves[src_ptr].write(m_aCfg.lfs, ",\t");
-            m_aCfg.lfs << ",\t";
-            leaves[tgt_ptr].write(m_aCfg.lfs, ",\t");
-            m_aCfg.lfs  << "]," << std::endl;
-#endif
-            assert(tpos >= 0);
-            assert(tpos < (int32_t)m_klcpXY[0][1].size());
             // - update target's LCP, if score is higher
-            if(score > m_klcpXY[0][1][tpos]){
-                int32_t pos = strPos(uNode, leaves[src_ptr]);
+            if(score > m_klcpXY[tpos]){
+                int32_t pos = strPos(uNode, leaves[tgt_ptr + 1]);
                 if(pos != tpos){
-                    m_klcpXY[0][0][tpos] = pos;
-                    m_klcpXY[0][1][tpos] = score;
+                    m_klcpXY[tpos] = score;
+                }
+            }
+            ++tgt_ptr;
+        } else {
+            return;
+        }
+        while(tgt_ptr < tgt_bound_minus_one){
+            int32_t rmin_a = 0;
+            int32_t rmin_b = 0;
+            int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
+            // - get LCP between src_ptr and tgt_ptr from RMQ
+                rmin_a = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
+                rmin_b = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
+            int32_t score_a = uNode.m_stringDepth + uNode.m_delta + rmin_a;
+            int32_t score_b = uNode.m_stringDepth + uNode.m_delta + rmin_b;
+            assert(tpos >= 0);
+            assert(tpos < (int32_t)m_klcpXY.size());
+            // - update target's LCP, if score is higher
+            if(score_a > m_klcpXY[tpos]){
+                int32_t pos = strPos(uNode, leaves[tgt_ptr - 1]);
+                if(pos != tpos){
+                    m_klcpXY[tpos] = score_a;
+                }
+            }
+            if(score_b > m_klcpXY[tpos]){
+                int32_t pos = strPos(uNode, leaves[tgt_ptr + 1]);
+                if(pos != tpos){
+                    m_klcpXY[tpos] = score_b;
                 }
             }
             // - update tgt_ptr; quit if out of bounds
-            int32_t prev_tgt = tgt_ptr;
-            next_ptr(tgt_ptr);
-            if(!bound_check(tgt_ptr, tgt_bound))
-                break;
-            // - update src_ptr, if tgt_ptr switches string source
-            if(leaves[tgt_ptr].m_srcStr == leaves[src_ptr].m_srcStr)
-                src_ptr = prev_tgt;
+            ++tgt_ptr;
+        }
+        if(tgt_ptr == tgt_bound_minus_one) {
+            int32_t rmin = 0;
+            int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
+            // - get LCP between src_ptr and tgt_ptr from RMQ
+            rmin = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
+            int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
+            // - update target's LCP, if score is higher
+            if(score > m_klcpXY[tpos]){
+                int32_t pos = strPos(uNode, leaves[tgt_ptr - 1]);
+                if(pos != tpos){
+                    m_klcpXY[tpos] = score;
+                }
+            }
+            ++tgt_ptr;
         }
     }
 
@@ -273,12 +274,10 @@ private:
     void selectSuffixes0(const InternalNode& uNode,
                          std::vector<L1Suffix>& leaves);
 public:
-    friend class HeuristicLCPk;
-    ExactLCPk(const std::string& x, const std::string& y,
-              AppConfig& cfg);
+    ExactLCPk(const std::string& s, AppConfig& cfg);
     void print(std::ostream& ofs);
     void compute();
-    auto getkLCP() -> ivec_t (&)[2][2] {
+    auto getkLCP() -> std::vector<int32_t>& {
         return m_klcpXY;
     }
     void computeTest(int k);

@@ -10,16 +10,16 @@
 //
 // Construct SA, ISA, LCP, RMQ data structures for the string
 //    sx  +  '#'  +  sy + '$'
-ExactLCPk::ExactLCPk(const std::string& sx, const std::string& sy,
+ExactLCPk::ExactLCPk(const std::string& s,
                      AppConfig& cfg) : m_aCfg(cfg){
-    m_strXY = sx + "#" + sy + "$";
-    m_strLengths[0] = sx.size(); m_strLengths[1] = sy.size();
-    m_strLenPfx[0] = sx.size(); m_strLenPfx[1] = sx.size() + 1 + sy.size();
-    m_shiftPos[0] = 0; m_shiftPos[1] = m_strLengths[0] + 1;
+    m_str = s + "#$";
+    m_strLength = s.size();
+    std::vector<int32_t> klcpXY(m_strLength, cfg.kv);
+    m_klcpXY = klcpXY;
     // construct SA, ISA, LCP and RMQ
-    construct_sa((const unsigned char*)m_strXY.c_str(), m_strXY.size(), m_gsa);
+    construct_sa((const unsigned char*)m_str.c_str(), m_str.size(), m_gsa);
     construct_isa(m_gsa, m_gisa);
-    construct_lcp_kasai(m_strXY.c_str(), m_gsa, m_gisa, m_glcp);
+    construct_lcp_kasai(m_str.c_str(), m_gsa, m_gisa, m_glcp);
     //construct_lcp_PHI(pxy.c_str(), gsa, glcp);
     m_rangeMinQuery =
         std::move(rmq_support_sparse_table<ivec_t, true, ivec_t>(&m_glcp));
@@ -31,7 +31,7 @@ void ExactLCPk::print(std::ostream& ofs){
         ofs << "   [" << std::setw(5) << i << ","
             << std::setw(5) << m_gsa[i] << ","
             << std::setw(5) << (i < m_glcp.size() ? m_glcp[i] : -1) << ","
-            << "    \"" << (m_strXY.c_str() + m_gsa[i]) << "\"],"
+            << "    \"" << (m_str.c_str() + m_gsa[i]) << "\"],"
             << std::endl;
 }
 
@@ -98,12 +98,11 @@ void ExactLCPk::chopPrefix0(const InternalNode& uNode,
     for(int32_t idx = uNode.m_leftBound, i = 0;
             idx <= uNode.m_rightBound; idx++, i++){
         int32_t spos = m_gsa[idx];
-        int32_t rs = spos < m_strLengths[0] ? 0 : 1;
         int32_t epos = spos + uNode.m_stringDepth + 1;
         // crossing boundary
-        int32_t esa = epos <= m_strLenPfx[rs] ? m_gisa[epos] : -1;
+        int32_t esa = epos <= m_strLength ? m_gisa[epos] : -1;
 
-        L1Suffix cm(spos, esa, rs);
+        L1Suffix cm(spos, esa);
         leaves[i] = cm;
     }
     //   sort tuples by i'
@@ -128,11 +127,10 @@ void ExactLCPk::selectSuffixes0(const InternalNode& uNode,
     for(int32_t idx = uNode.m_leftBound, i = 0;
             idx <= uNode.m_rightBound; idx++, i++){
         int32_t spos = m_gsa[idx];
-        int32_t rs = spos < m_strLengths[0] ? 0 : 1;
         // crossing boundary
-        int32_t esa = spos <= m_strLenPfx[rs] ? idx : -1;
+        int32_t esa = spos <= m_strLength ? idx : -1;
 
-        L1Suffix cm(spos, esa, rs);
+        L1Suffix cm(spos, esa);
         leaves[i] = cm;
     }
 }
@@ -185,21 +183,21 @@ void ExactLCPk::updateExactLCPk(const InternalNode& uNode,
     m_passSizes += leaves.size();
 
     // left -> right pass
-    updatePass<UpperBoundCheck, IncrPointer>(0, 1, (int32_t)leaves.size(),
-                                             uNode, leaves
+    updatePass((int32_t)leaves.size(),
+                 uNode, leaves
 #ifdef DEBUG
                                              , "L->R"
 #endif
-                                             );
+             );
     // right -> left pass
-    updatePass<LowerBoundCheck, DecrPointer>((int32_t)leaves.size() - 1,
-                                             (int32_t)leaves.size() - 2, -1,
-                                             uNode, leaves
+    /* updatePass<LowerBoundCheck, DecrPointer>((int32_t)leaves.size() - 1, */
+    /*                                          (int32_t)leaves.size() - 2, -1, */
+    /*                                          uNode, leaves */
 #ifdef DEBUG
-                                             , "R->L"
+                                             /* , "R->L" */
 #endif
 
-                                             );
+                                             /* ); */
 
 #ifdef DEBUG
     m_aCfg.lfs << std::endl;
@@ -328,12 +326,11 @@ void ExactLCPk::chopPrefixK(const InternalNode& uNode,
         if(epx < 0 || epx >= (int32_t)m_gsa.size())
             continue;
         int32_t spos = m_gsa[epx];
-        int32_t rs = inSuffixes[idx].m_srcStr;
         int32_t epos = spos + uNode.m_stringDepth + 1 ;
         // crossing boundary
-        int32_t esa = epos <= m_strLenPfx[rs] ? m_gisa[epos] : -1;
+        int32_t esa = epos <= m_strLength ? m_gisa[epos] : -1;
 
-        L1Suffix cm(spos, esa, rs);
+        L1Suffix cm(spos, esa);
         outSuffixes[j] = cm;
 #ifdef DEBUG
         inSuffixes[idx].dwrite(m_aCfg.lfs);
@@ -354,12 +351,6 @@ void ExactLCPk::chopPrefixK(const InternalNode& uNode,
 void ExactLCPk::compute0(){
     assert(m_gsa.size() > 2);
     assert(m_gsa.size() == m_glcp.size()); // an assumption of lca
-
-    // resize the LCP arrays
-    for(unsigned i = 0; i < 2; i++){
-        m_klcpXY[i][0].resize(m_strLengths[i], 0);
-        m_klcpXY[i][1].resize(m_strLengths[i], 0);
-    }
 
     InternalNode uNode;
     uNode.m_leftBound = 2;
@@ -386,29 +377,12 @@ void ExactLCPk::computeK(const InternalNode& uNode, const std::vector<L1Suffix>&
         updateExactLCPk(uNode, uLeaves);
         return;
     }
-    /* std::vector<InternalNode> trieNodes; */
-    /* selectInternalNodesK(uNode, uLeaves, trieNodes); */
-    /* void ExactLCPk::selectInternalNodesK(const InternalNode& prevNode, */
-    /*                                  const std::vector<L1Suffix>& leaves, */
-    /*                                  std::vector<InternalNode>& trieNodes){ */
-    for(int32_t i = 0; i < (int32_t)uLeaves.size(); i++){
-        if(uLeaves[i].m_errSAPos < 2) // skip the one which reach the end
-            continue;
-        // - make an internal node
-        InternalNode iuNode;
-        iuNode.m_leftBound = leftBoundK(uLeaves, i); // get left end
-        iuNode.m_rightBound = rightBoundK(uLeaves, i); // get right end
-        if(iuNode.m_leftBound == iuNode.m_rightBound) // skip internal node with 1 leaf
-            continue;
-        // prevNode.depth + 1 + get range min lcp of left and right ends
-        iuNode.m_stringDepth =
-            rangeMinLCP(uLeaves[iuNode.m_leftBound].m_errSAPos,
-                        uLeaves[iuNode.m_rightBound].m_errSAPos);
-        iuNode.m_delta = uNode.m_delta + uNode.m_stringDepth + 1;
-
+    std::vector<InternalNode> trieNodes;
+    selectInternalNodesK(uNode, uLeaves, trieNodes);
+    for(auto nit = trieNodes.begin(); nit != trieNodes.end(); nit++){
         std::vector<L1Suffix> trieLeaves;
-        chopPrefixK(iuNode, uLeaves, trieLeaves);
-        computeK(iuNode, trieLeaves, searchLevel - 1);
+        chopPrefixK(*nit, uLeaves, trieLeaves);
+        computeK(*nit, trieLeaves, searchLevel - 1);
     }
 }
 
@@ -417,36 +391,25 @@ void ExactLCPk::computeK(){
     assert(m_gsa.size() > 2);
     assert(m_gsa.size() == m_glcp.size()); // an assumption of lca
 
-    // resize the LCP arrays
-    for(unsigned i = 0; i < 2; i++){
-        m_klcpXY[i][0].resize(m_strLengths[i], 0);
-        m_klcpXY[i][1].resize(m_strLengths[i], m_kv);
-        // last end
-        for(int j = 1; j < m_kv; j++){
-            auto xit = m_strLengths[i] - j;
-            if(xit >= 0)
-                m_klcpXY[i][1][xit] = j;
-        }
+    for(int j = 1; j < m_kv; j++){
+        auto xit = m_strLength - j;
+        if(xit >= 0)
+            m_klcpXY[xit] = j;
     }
     // get all the internal nodes
-    /* std::vector<InternalNode> uNodes; */
-    /* selectInternalNodes0(uNodes); */
+    std::vector<InternalNode> uNodes;
+    selectInternalNodes0(uNodes);
     // for each internal node
-    for(int32_t i = 2; i < (int32_t)m_gsa.size() - 1; i++){
-        InternalNode nit;
-        nit.m_leftBound = leftBound0(i);
-        nit.m_rightBound = rightBound0(i);
-        nit.m_stringDepth = m_glcp[i + 1];
-        nit.m_delta = 0;
+    for(auto nit = uNodes.begin(); nit != uNodes.end(); nit++){
 #ifdef DEBUG
-        (nit).dwriteln(m_aCfg.lfs);
+        (*nit).dwriteln(m_aCfg.lfs);
 #endif
         //   collect tuples for each position (going left and right)
         //      (i, i', 0/1) i' = gisa[gsa[i] + d + 1]
         std::vector<L1Suffix> choppedSfxs;
-        chopPrefix0(nit, choppedSfxs);
+        chopPrefix0(*nit, choppedSfxs);
         // update lcp using sorted tuples using a double pass
-        computeK(nit, choppedSfxs, m_kv - 1);
+        computeK(*nit, choppedSfxs, m_kv - 1);
     }
 }
 

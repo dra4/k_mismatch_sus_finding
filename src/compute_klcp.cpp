@@ -5,8 +5,6 @@
 #include <ctime>
 
 #include "ExactLCPk.hpp"
-#include "NaiveLCPk.hpp"
-#include "HeuristicLCPk.hpp"
 
 void print_values(const ReadsDB& rdb,
                 const ivec_t lcpKXY, const unsigned& k,
@@ -50,7 +48,7 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
     const std::string& s = rdb.getReadById(0);
     clock_t startTime = clock();
 
-    LCPk lxy(s, s, cfg); // construct suffix array
+    LCPk lxy(s, cfg); // construct suffix array
 #ifdef DEBUG
     lxy.print(cfg.lfs);
 #endif
@@ -60,8 +58,9 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
 #endif
     cfg.ofs << "{" << std::endl;
     /* std::cout << "Getting LLRk...\n"; */
-    ivec_t &llrk = lxy.getkLCP()[0][1];
+    ivec_t &llrk = lxy.getkLCP();
     /* print_values(rdb, llrk, cfg.kv, cfg.ofs, "llrk"); */
+    print_b(llrk);
 
     unsigned size = s.size();
     ivec_t workspace(size, 0);
