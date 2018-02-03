@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <atomic>
+#include <thread>
 
 //
 // Construct SA, ISA, LCP, RMQ data structures for the string
@@ -14,8 +16,10 @@ ExactLCPk::ExactLCPk(const std::string& s,
                      AppConfig& cfg) : m_aCfg(cfg){
     m_str = s + "#$";
     m_strLength = s.size();
-    std::vector<int32_t> klcpXY(m_strLength, cfg.kv);
-    m_klcpXY = klcpXY;
+    m_klcpXY = new std::atomic<int32_t>[m_strLength];
+    for(size_t i = 0; i < m_strLength; ++i) {
+        m_klcpXY[i].store(cfg.kv);
+    }
     // construct SA, ISA, LCP and RMQ
     construct_sa((const unsigned char*)m_str.c_str(), m_str.size(), m_gsa);
     construct_isa(m_gsa, m_gisa);
@@ -386,6 +390,17 @@ void ExactLCPk::computeK(const InternalNode& uNode, const std::vector<L1Suffix>&
     }
 }
 
+void ExactLCPk::launch(const std::vector<InternalNode>& uNodes, int32_t start_idx, int32_t step){
+    int32_t size = uNodes.size();
+    for(size_t i = start_idx; i < size; i += step) {
+        InternalNode nit = uNodes[i];
+        std::vector<L1Suffix> choppedSfxs;
+        chopPrefix0(nit, choppedSfxs);
+        // update lcp using sorted tuples using a double pass
+        computeK(nit, choppedSfxs, m_kv - 1);
+    }
+}
+
 // Entry for LCP_k computation
 void ExactLCPk::computeK(){
     assert(m_gsa.size() > 2);
@@ -394,22 +409,19 @@ void ExactLCPk::computeK(){
     for(int j = 1; j < m_kv; j++){
         auto xit = m_strLength - j;
         if(xit >= 0)
-            m_klcpXY[xit] = j;
+            m_klcpXY[xit].store(j);
     }
     // get all the internal nodes
     std::vector<InternalNode> uNodes;
     selectInternalNodes0(uNodes);
     // for each internal node
-    for(auto nit = uNodes.begin(); nit != uNodes.end(); nit++){
-#ifdef DEBUG
-        (*nit).dwriteln(m_aCfg.lfs);
-#endif
-        //   collect tuples for each position (going left and right)
-        //      (i, i', 0/1) i' = gisa[gsa[i] + d + 1]
-        std::vector<L1Suffix> choppedSfxs;
-        chopPrefix0(*nit, choppedSfxs);
-        // update lcp using sorted tuples using a double pass
-        computeK(*nit, choppedSfxs, m_kv - 1);
+    unsigned num_cores = std::thread::hardware_concurrency();
+    std::vector<std::thread> threads(num_cores);
+    for(size_t i = 0; i < num_cores; ++i){
+        threads[i] = std::thread(&ExactLCPk::launch, this, std::ref(uNodes), i, num_cores);
+    }
+    for(size_t i = 0; i < num_cores; ++i){
+        threads[i].join();
     }
 }
 

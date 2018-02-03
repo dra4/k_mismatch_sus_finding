@@ -32,7 +32,8 @@ ADD_EXECUTABLE(${PROJECT_NAME_STR}.x
                src/compute_kacs.cpp src/main.cpp)
 
 #Link SDSL library
-target_link_libraries(${PROJECT_NAME_STR}.x divsufsort divsufsort64)
+find_package (Threads)
+target_link_libraries(${PROJECT_NAME_STR}.x divsufsort divsufsort64 ${CMAKE_THREAD_LIBS_INIT})
 
 # Testing
 enable_testing()

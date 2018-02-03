@@ -58,7 +58,7 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
 #endif
     cfg.ofs << "{" << std::endl;
     /* std::cout << "Getting LLRk...\n"; */
-    ivec_t &llrk = lxy.getkLCP();
+    ivec_t llrk = lxy.getkLCP();
     /* print_values(rdb, llrk, cfg.kv, cfg.ofs, "llrk"); */
     print_b(llrk);
 

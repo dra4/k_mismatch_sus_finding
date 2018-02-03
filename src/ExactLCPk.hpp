@@ -5,6 +5,7 @@
 #include "AppConfig.hpp"
 #include "ReadsDB.hpp"
 #include "rmq_support_sparse_table.hpp"
+#include <atomic>
 
 struct InternalNode{
     int32_t m_leftBound;
@@ -122,7 +123,7 @@ private:
     int32_t m_strLength;
     std::string m_str;
     ivec_t m_gsa, m_gisa, m_glcp;
-    std::vector<int32_t> m_klcpXY;
+    std::atomic<int32_t> *m_klcpXY;
     int m_kv;
     double m_nPass;
     double m_passSizes;
@@ -197,65 +198,58 @@ private:
         int32_t tgt_ptr = 0;
         const int32_t tgt_bound_minus_one = tgt_bound - 1;
         if(tgt_ptr < tgt_bound_minus_one) {
-            int32_t rmin = 0;
             int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
-            // - get LCP between src_ptr and tgt_ptr from RMQ
-                rmin = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
-            int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
-            // - update target's LCP, if score is higher
-            if(score > m_klcpXY[tpos]){
-                int32_t pos = strPos(uNode, leaves[tgt_ptr + 1]);
-                if(pos != tpos){
-                    m_klcpXY[tpos] = score;
-                }
+            int32_t pos = strPos(uNode, leaves[tgt_ptr + 1]);
+            if(pos != tpos){
+                int32_t rmin = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
+                int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
+                int32_t observed_prev_score = m_klcpXY[tpos].load();
+                while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
             }
             ++tgt_ptr;
         } else {
             return;
         }
         while(tgt_ptr < tgt_bound_minus_one){
-            int32_t rmin_a = 0;
-            int32_t rmin_b = 0;
             int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
-            // - get LCP between src_ptr and tgt_ptr from RMQ
-                rmin_a = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
-                rmin_b = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
-            int32_t score_a = uNode.m_stringDepth + uNode.m_delta + rmin_a;
-            int32_t score_b = uNode.m_stringDepth + uNode.m_delta + rmin_b;
+            int32_t src_ptr = 0;
+            int32_t pos = 0;
+            int32_t rmin = 0;
+            int32_t rmin_a = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
+            int32_t rmin_b = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
+            if(rmin_a > rmin_b) {
+                src_ptr = tgt_ptr - 1;
+                pos = strPos(uNode, leaves[tgt_ptr - 1]);
+                rmin = rmin_a;
+            } else {
+                src_ptr = tgt_ptr + 1;
+                pos = strPos(uNode, leaves[tgt_ptr + 1]);
+                rmin = rmin_b;
+            }
+            pos = strPos(uNode, leaves[src_ptr]);
             assert(tpos >= 0);
-            assert(tpos < (int32_t)m_klcpXY.size());
-            // - update target's LCP, if score is higher
-            if(score_a > m_klcpXY[tpos]){
-                int32_t pos = strPos(uNode, leaves[tgt_ptr - 1]);
-                if(pos != tpos){
-                    m_klcpXY[tpos] = score_a;
-                }
+            assert(tpos < (int32_t)m_strLength);
+            if(pos != tpos){
+                int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
+                int32_t observed_prev_score = m_klcpXY[tpos].load();
+                while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
             }
-            if(score_b > m_klcpXY[tpos]){
-                int32_t pos = strPos(uNode, leaves[tgt_ptr + 1]);
-                if(pos != tpos){
-                    m_klcpXY[tpos] = score_b;
-                }
-            }
-            // - update tgt_ptr; quit if out of bounds
             ++tgt_ptr;
         }
         if(tgt_ptr == tgt_bound_minus_one) {
-            int32_t rmin = 0;
             int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
-            // - get LCP between src_ptr and tgt_ptr from RMQ
-            rmin = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
-            int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
-            // - update target's LCP, if score is higher
-            if(score > m_klcpXY[tpos]){
-                int32_t pos = strPos(uNode, leaves[tgt_ptr - 1]);
-                if(pos != tpos){
-                    m_klcpXY[tpos] = score;
-                }
+            int32_t pos = strPos(uNode, leaves[tgt_ptr - 1]);
+            if(pos != tpos){
+                int32_t rmin = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
+                int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
+                int32_t observed_prev_score = m_klcpXY[tpos].load();
+                while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
             }
             ++tgt_ptr;
         }
     }
+
+    void launch(const std::vector<InternalNode>& uNodes, int32_t start_idx, int32_t step);
 
     void computeK(const InternalNode& uNode, const std::vector<L1Suffix>& uLeaves,
                   int searchLevel);
@@ -277,8 +271,12 @@ public:
     ExactLCPk(const std::string& s, AppConfig& cfg);
     void print(std::ostream& ofs);
     void compute();
-    auto getkLCP() -> std::vector<int32_t>& {
-        return m_klcpXY;
+    auto getkLCP() -> std::vector<int32_t> {
+        std::vector<int32_t> ret(m_strLength);
+        for(size_t i = 0; i < m_strLength; ++i) {
+            ret[i] = m_klcpXY[i].load();
+        }
+        return ret;
     }
     void computeTest(int k);
 };
