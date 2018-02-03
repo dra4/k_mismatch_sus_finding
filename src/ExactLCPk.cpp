@@ -392,16 +392,49 @@ void ExactLCPk::computeK(const InternalNode& uNode, const std::vector<L1Suffix>&
     }
 }
 
-void ExactLCPk::launch(const std::vector<InternalNode>& uNodes, const std::vector<int32_t>& indices, int32_t start_idx, int32_t limit){
-    int32_t size = uNodes.size();
-    for(size_t i = start_idx; i < limit; ++i) {
-        int32_t idx = indices[i];
-        InternalNode nit = uNodes[idx];
-        std::vector<L1Suffix> choppedSfxs;
-        chopPrefix0(nit, choppedSfxs);
-        // update lcp using sorted tuples using a double pass
-        computeK(nit, choppedSfxs, m_kv - 1);
-    }
+void ExactLCPk::launch(const std::vector<InternalNode>& uNodes, const std::vector<int32_t>& indices, size_t tid, unsigned t_count){
+    bool allDone = false;
+    std::atomic<int32_t> *cur_idx_and_limit = m_cur_idx_and_limits[tid];
+    while(!allDone) {
+        int32_t cur_idx_i = cur_idx_and_limit[0].load();
+        while(cur_idx_i < cur_idx_and_limit[1].load()) {
+            int32_t idx = indices[cur_idx_i];
+            InternalNode nit = uNodes[idx];
+            std::vector<L1Suffix> choppedSfxs;
+            chopPrefix0(nit, choppedSfxs);
+            computeK(nit, choppedSfxs, m_kv - 1);
+            ++cur_idx_i;
+            cur_idx_and_limit[0].store(cur_idx_i);
+        }
+        size_t max_work_remaining_tid = 0;
+        int32_t max_tid_observed_limit = 0;
+        int32_t max_work_remaining = 0;
+        allDone = true;
+        for(unsigned i = 0; i < t_count; ++i){
+            int32_t observed_limit = m_cur_idx_and_limits[i][1].load();
+            int32_t work_remaining = observed_limit - m_cur_idx_and_limits[i][0].load();
+            if(work_remaining > 10 && work_remaining > max_work_remaining) {
+                max_work_remaining = work_remaining;
+                max_work_remaining_tid = i;
+                max_tid_observed_limit = observed_limit;
+
+                allDone = false;
+            }
+        }
+        if(!allDone){
+            int32_t cur_observed_idx = m_cur_idx_and_limits[max_work_remaining_tid][0].load();
+            int32_t newLimit = cur_observed_idx + ((max_tid_observed_limit - cur_observed_idx)/2);
+            if(m_cur_idx_and_limits[max_work_remaining_tid][1].compare_exchange_weak(max_tid_observed_limit, newLimit)){
+                if(cur_idx_and_limit[1].load() < max_tid_observed_limit) {
+                    cur_idx_and_limit[0].store(newLimit);
+                    cur_idx_and_limit[1].store(max_tid_observed_limit);
+                } else {
+                    cur_idx_and_limit[1].store(max_tid_observed_limit);
+                    cur_idx_and_limit[0].store(newLimit);
+                }
+            }
+        }
+    }   
 }
 
 // Entry for LCP_k computation
@@ -428,12 +461,18 @@ void ExactLCPk::computeK(){
     // for each internal node
     unsigned num_cores = std::thread::hardware_concurrency();
     std::vector<std::thread> threads(num_cores);
+    m_cur_idx_and_limits = new std::atomic<int32_t>*[num_cores];
+    for(size_t i = 0; i < num_cores; ++i){
+        m_cur_idx_and_limits[i] = new std::atomic<int32_t>[2];
+    }
     size_t size = indices.size() % num_cores;
     size_t start_index = 0;
     for(size_t i = 0; i < num_cores; ++i){
         size += indices.size()/num_cores;
         size_t limit = start_index + size;
-        threads[i] = std::thread(&ExactLCPk::launch, this, std::ref(uNodes), std::ref(indices), start_index, limit);
+        m_cur_idx_and_limits[i][0].store(start_index);
+        m_cur_idx_and_limits[i][1].store(limit);
+        threads[i] = std::thread(&ExactLCPk::launch, this, std::ref(uNodes), std::ref(indices), i, num_cores);
         start_index += size;
         size = 0;
     }

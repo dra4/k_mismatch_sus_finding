@@ -127,6 +127,7 @@ private:
     int m_kv;
     double m_nPass;
     double m_passSizes;
+    std::atomic<int32_t> **m_cur_idx_and_limits;
 
     rmq_support_sparse_table<ivec_t, true, ivec_t> m_rangeMinQuery;
 
@@ -249,7 +250,7 @@ private:
         }
     }
 
-    void launch(const std::vector<InternalNode>& uNodes, const std::vector<int32_t>& indices, int32_t start_idx, int32_t limit);
+    void launch(const std::vector<InternalNode>& uNodes, const std::vector<int32_t>& indices, size_t tid, unsigned t_count);
 
     void computeK(const InternalNode& uNode, const std::vector<L1Suffix>& uLeaves,
                   int searchLevel);
