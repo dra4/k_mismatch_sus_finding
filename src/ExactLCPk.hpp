@@ -249,7 +249,7 @@ private:
         }
     }
 
-    void launch(const std::vector<InternalNode>& uNodes, int32_t start_idx, int32_t step);
+    void launch(const std::vector<InternalNode>& uNodes, const std::vector<int32_t>& indices, int32_t start_idx, int32_t limit);
 
     void computeK(const InternalNode& uNode, const std::vector<L1Suffix>& uLeaves,
                   int searchLevel);

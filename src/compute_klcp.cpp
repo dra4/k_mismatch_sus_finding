@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <ctime>
+#include <chrono>
 
 #include "ExactLCPk.hpp"
 
@@ -47,6 +48,7 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
 #endif
     const std::string& s = rdb.getReadById(0);
     clock_t startTime = clock();
+    auto wc_start = std::chrono::high_resolution_clock::now();
 
     LCPk lxy(s, cfg); // construct suffix array
 #ifdef DEBUG
@@ -173,7 +175,9 @@ void klcp_pair_factory(ReadsDB& rdb, AppConfig& cfg){
         }
     }
 
-    std::cout << "Seconds: " << double( clock() - startTime ) / ((double)CLOCKS_PER_SEC ) << "\n";
+    auto wc_end = std::chrono::high_resolution_clock::now();
+    std::cout << "Seconds CPU time: " << double( clock() - startTime ) / ((double)CLOCKS_PER_SEC ) << "\n";
+    std::cout << "Seconds wall clock time: " << double(std::chrono::duration<double, std::milli>(wc_end-wc_start).count())/1000.0 << "\n";
     print_values(rdb, workspace, cfg.kv, cfg.ofs, "suska");
     print_values(rdb, lsusk, cfg.kv, cfg.ofs, "suskb");
     print_a_b(workspace, lsusk);

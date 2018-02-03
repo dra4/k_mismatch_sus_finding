@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <atomic>
 #include <thread>
+#include <random>
+#include <chrono>
 
 //
 // Construct SA, ISA, LCP, RMQ data structures for the string
@@ -390,10 +392,11 @@ void ExactLCPk::computeK(const InternalNode& uNode, const std::vector<L1Suffix>&
     }
 }
 
-void ExactLCPk::launch(const std::vector<InternalNode>& uNodes, int32_t start_idx, int32_t step){
+void ExactLCPk::launch(const std::vector<InternalNode>& uNodes, const std::vector<int32_t>& indices, int32_t start_idx, int32_t limit){
     int32_t size = uNodes.size();
-    for(size_t i = start_idx; i < size; i += step) {
-        InternalNode nit = uNodes[i];
+    for(size_t i = start_idx; i < limit; ++i) {
+        int32_t idx = indices[i];
+        InternalNode nit = uNodes[idx];
         std::vector<L1Suffix> choppedSfxs;
         chopPrefix0(nit, choppedSfxs);
         // update lcp using sorted tuples using a double pass
@@ -414,11 +417,25 @@ void ExactLCPk::computeK(){
     // get all the internal nodes
     std::vector<InternalNode> uNodes;
     selectInternalNodes0(uNodes);
+
+    std::vector<int32_t> indices(uNodes.size());
+    for(size_t i = 0; i < indices.size(); ++i){
+        indices[i] = i;
+    }
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    shuffle(indices.begin(), indices.end(), std::default_random_engine(seed));
+
     // for each internal node
     unsigned num_cores = std::thread::hardware_concurrency();
     std::vector<std::thread> threads(num_cores);
+    size_t size = indices.size() % num_cores;
+    size_t start_index = 0;
     for(size_t i = 0; i < num_cores; ++i){
-        threads[i] = std::thread(&ExactLCPk::launch, this, std::ref(uNodes), i, num_cores);
+        size += indices.size()/num_cores;
+        size_t limit = start_index + size;
+        threads[i] = std::thread(&ExactLCPk::launch, this, std::ref(uNodes), std::ref(indices), start_index, limit);
+        start_index += size;
+        size = 0;
     }
     for(size_t i = 0; i < num_cores; ++i){
         threads[i].join();
