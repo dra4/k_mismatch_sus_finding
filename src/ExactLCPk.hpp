@@ -200,13 +200,10 @@ private:
         const int32_t tgt_bound_minus_one = tgt_bound - 1;
         if(tgt_ptr < tgt_bound_minus_one) {
             int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
-            int32_t pos = strPos(uNode, leaves[tgt_ptr + 1]);
-            if(pos != tpos){
-                int32_t rmin = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
-                int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
-                int32_t observed_prev_score = m_klcpXY[tpos].load();
-                while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
-            }
+            int32_t rmin = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
+            int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
+            int32_t observed_prev_score = m_klcpXY[tpos].load();
+            while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
             ++tgt_ptr;
         } else {
             return;
@@ -214,38 +211,29 @@ private:
         while(tgt_ptr < tgt_bound_minus_one){
             int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
             int32_t src_ptr = 0;
-            int32_t pos = 0;
             int32_t rmin = 0;
             int32_t rmin_a = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
             int32_t rmin_b = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
             if(rmin_a > rmin_b) {
                 src_ptr = tgt_ptr - 1;
-                pos = strPos(uNode, leaves[tgt_ptr - 1]);
                 rmin = rmin_a;
             } else {
                 src_ptr = tgt_ptr + 1;
-                pos = strPos(uNode, leaves[tgt_ptr + 1]);
                 rmin = rmin_b;
             }
-            pos = strPos(uNode, leaves[src_ptr]);
             assert(tpos >= 0);
             assert(tpos < (int32_t)m_strLength);
-            if(pos != tpos){
-                int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
-                int32_t observed_prev_score = m_klcpXY[tpos].load();
-                while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
-            }
+            int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
+            int32_t observed_prev_score = m_klcpXY[tpos].load();
+            while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
             ++tgt_ptr;
         }
         if(tgt_ptr == tgt_bound_minus_one) {
             int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
-            int32_t pos = strPos(uNode, leaves[tgt_ptr - 1]);
-            if(pos != tpos){
-                int32_t rmin = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
-                int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
-                int32_t observed_prev_score = m_klcpXY[tpos].load();
-                while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
-            }
+            int32_t rmin = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
+            int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
+            int32_t observed_prev_score = m_klcpXY[tpos].load();
+            while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
             ++tgt_ptr;
         }
     }
