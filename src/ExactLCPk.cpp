@@ -18,10 +18,8 @@ ExactLCPk::ExactLCPk(const std::string& s,
                      AppConfig& cfg) : m_aCfg(cfg){
     m_str = s + "#$";
     m_strLength = s.size();
-    m_klcpXY = new std::atomic<int32_t>[m_strLength];
-    for(size_t i = 0; i < m_strLength; ++i) {
-        m_klcpXY[i].store(cfg.kv);
-    }
+    std::vector<int32_t> klcpXY(m_strLength, cfg.kv);
+    m_klcpXY = klcpXY;
     // construct SA, ISA, LCP and RMQ
     construct_sa((const unsigned char*)m_str.c_str(), m_str.size(), m_gsa);
     construct_isa(m_gsa, m_gisa);
@@ -175,7 +173,7 @@ void ExactLCPk::selectInternalNodes0(std::vector<InternalNode>& uNodes){
 // Update pass
 //  Pass through the leaves to update longest matching prefixes
 void ExactLCPk::updateExactLCPk(const InternalNode& uNode,
-                                const std::vector<L1Suffix>& leaves){
+                                const std::vector<L1Suffix>& leaves, size_t tid){
 #ifdef DEBUG
     m_aCfg.lfs << std::endl;
     for(auto cm: leaves){
@@ -190,7 +188,7 @@ void ExactLCPk::updateExactLCPk(const InternalNode& uNode,
 
     // left -> right pass
     updatePass((int32_t)leaves.size(),
-                 uNode, leaves
+                 uNode, leaves, tid
 #ifdef DEBUG
                                              , "L->R"
 #endif
@@ -371,16 +369,16 @@ void ExactLCPk::compute0(){
     selectSuffixes0(uNode, leaves);
     uNode.m_stringDepth = -1; // just to let update use the LCP
     // update lcp using sorted tuples using a double pass
-    updateExactLCPk(uNode, leaves);
+    updateExactLCPk(uNode, leaves, 0);
 }
 
 // Recursive function to compute LCP_k for a given internal node
 // and the corresponding chopped suffixes
 void ExactLCPk::computeK(const InternalNode& uNode, const std::vector<L1Suffix>& uLeaves,
-                         int searchLevel){
+                         int searchLevel, size_t tid){
     if(searchLevel == 0){
         // update LCP array
-        updateExactLCPk(uNode, uLeaves);
+        updateExactLCPk(uNode, uLeaves, tid);
         return;
     }
     std::vector<InternalNode> trieNodes;
@@ -388,7 +386,7 @@ void ExactLCPk::computeK(const InternalNode& uNode, const std::vector<L1Suffix>&
     for(auto nit = trieNodes.begin(); nit != trieNodes.end(); nit++){
         std::vector<L1Suffix> trieLeaves;
         chopPrefixK(*nit, uLeaves, trieLeaves);
-        computeK(*nit, trieLeaves, searchLevel - 1);
+        computeK(*nit, trieLeaves, searchLevel - 1, tid);
     }
 }
 
@@ -402,7 +400,7 @@ void ExactLCPk::launch(const std::vector<InternalNode>& uNodes, const std::vecto
             InternalNode nit = uNodes[idx];
             std::vector<L1Suffix> choppedSfxs;
             chopPrefix0(nit, choppedSfxs);
-            computeK(nit, choppedSfxs, m_kv - 1);
+            computeK(nit, choppedSfxs, m_kv - 1, tid);
             ++cur_idx_i;
             cur_idx_and_limit[0].store(cur_idx_i);
         }
@@ -445,7 +443,7 @@ void ExactLCPk::computeK(){
     for(int j = 1; j < m_kv; j++){
         auto xit = m_strLength - j;
         if(xit >= 0)
-            m_klcpXY[xit].store(j);
+            m_klcpXY[xit] = j;
     }
     // get all the internal nodes
     std::vector<InternalNode> uNodes;
@@ -464,6 +462,8 @@ void ExactLCPk::computeK(){
     m_cur_idx_and_limits = new std::atomic<int32_t>*[num_cores];
     for(size_t i = 0; i < num_cores; ++i){
         m_cur_idx_and_limits[i] = new std::atomic<int32_t>[2];
+        std::vector<int32_t> mem(m_strLength);
+        m_klcp_by_tid.push_back(mem);
     }
     size_t size = indices.size() % num_cores;
     size_t start_index = 0;
@@ -478,6 +478,14 @@ void ExactLCPk::computeK(){
     }
     for(size_t i = 0; i < num_cores; ++i){
         threads[i].join();
+    }
+    for(size_t i = 0; i < num_cores; ++i){
+        std::vector<int32_t>& klcp_tid = m_klcp_by_tid[i];
+        for(size_t j = 0; j < m_strLength; ++j) {
+            if(klcp_tid[j] > m_klcpXY[j]) {
+                m_klcpXY[j] = klcp_tid[j];
+            }
+        }
     }
 }
 

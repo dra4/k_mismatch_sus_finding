@@ -123,7 +123,8 @@ private:
     int32_t m_strLength;
     std::string m_str;
     ivec_t m_gsa, m_gisa, m_glcp;
-    std::atomic<int32_t> *m_klcpXY;
+    std::vector<int32_t> m_klcpXY;
+    std::vector<std::vector<int32_t>> m_klcp_by_tid;
     int m_kv;
     double m_nPass;
     double m_passSizes;
@@ -137,7 +138,7 @@ private:
     void chopPrefix0(const InternalNode& uNode,
                      std::vector<L1Suffix>& leaves);
 
-    void updateExactLCPk(const InternalNode& uNode, const std::vector<L1Suffix>& leaves);
+    void updateExactLCPk(const InternalNode& uNode, const std::vector<L1Suffix>& leaves, size_t tid);
 
     void eliminateDupes(std::vector<InternalNode>& uNodes);
 
@@ -190,7 +191,8 @@ private:
 
     void updatePass(const int32_t& tgt_bound,
                     const InternalNode& uNode,
-                    const std::vector<L1Suffix>& leaves
+                    const std::vector<L1Suffix>& leaves,
+                    const size_t tid
 #ifdef DEBUG
                     ,
                     const std::string& dbgStr
@@ -198,12 +200,15 @@ private:
                     ) {
         int32_t tgt_ptr = 0;
         const int32_t tgt_bound_minus_one = tgt_bound - 1;
+        std::vector<int32_t>& kclp_tid = m_klcp_by_tid[tid];
         if(tgt_ptr < tgt_bound_minus_one) {
             int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
             int32_t rmin = updatePassLCP(leaves[tgt_ptr + 1], leaves[tgt_ptr]);
             int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
-            int32_t observed_prev_score = m_klcpXY[tpos].load();
-            while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
+            int32_t observed_prev_score = kclp_tid[tpos];
+            if(score > observed_prev_score) {
+                kclp_tid[tpos] = score;
+            }
             ++tgt_ptr;
         } else {
             return;
@@ -224,16 +229,20 @@ private:
             assert(tpos >= 0);
             assert(tpos < (int32_t)m_strLength);
             int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
-            int32_t observed_prev_score = m_klcpXY[tpos].load();
-            while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
+            int32_t observed_prev_score = kclp_tid[tpos];
+            if(score > observed_prev_score) {
+                kclp_tid[tpos] = score;
+            }
             ++tgt_ptr;
         }
         if(tgt_ptr == tgt_bound_minus_one) {
             int32_t tpos = strPos(uNode, leaves[tgt_ptr]);
             int32_t rmin = updatePassLCP(leaves[tgt_ptr - 1], leaves[tgt_ptr]);
             int32_t score = uNode.m_stringDepth + uNode.m_delta + rmin;
-            int32_t observed_prev_score = m_klcpXY[tpos].load();
-            while(score > observed_prev_score && !m_klcpXY[tpos].compare_exchange_weak(observed_prev_score, score));
+            int32_t observed_prev_score = kclp_tid[tpos];
+            if(score > observed_prev_score) {
+                kclp_tid[tpos] = score;
+            }
             ++tgt_ptr;
         }
     }
@@ -241,7 +250,7 @@ private:
     void launch(const std::vector<InternalNode>& uNodes, const std::vector<int32_t>& indices, size_t tid, unsigned t_count);
 
     void computeK(const InternalNode& uNode, const std::vector<L1Suffix>& uLeaves,
-                  int searchLevel);
+                  int searchLevel, size_t tid);
     void computeK();
     int32_t leftBoundK(const std::vector<L1Suffix>& trieLeaves,
                        int32_t curLeaf);
@@ -260,12 +269,8 @@ public:
     ExactLCPk(const std::string& s, AppConfig& cfg);
     void print(std::ostream& ofs);
     void compute();
-    auto getkLCP() -> std::vector<int32_t> {
-        std::vector<int32_t> ret(m_strLength);
-        for(size_t i = 0; i < m_strLength; ++i) {
-            ret[i] = m_klcpXY[i].load();
-        }
-        return ret;
+    auto getkLCP() -> std::vector<int32_t>& {
+        return m_klcpXY;
     }
     void computeTest(int k);
 };
