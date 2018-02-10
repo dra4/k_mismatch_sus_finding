@@ -450,13 +450,9 @@ void ExactLCPk::computeK(){
     selectInternalNodes0(uNodes);
 
     std::vector<int32_t> indices(uNodes.size());
-    for(size_t i = 0; i < indices.size(); ++i){
-        indices[i] = i;
-    }
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    shuffle(indices.begin(), indices.end(), std::default_random_engine(seed));
 
-    // for each internal node
+    std::sort(uNodes.begin(), uNodes.end(), less_than_str_depth());
+
     unsigned num_cores = std::thread::hardware_concurrency();
     std::vector<std::thread> threads(num_cores);
     m_cur_idx_and_limits = new std::atomic<int32_t>*[num_cores];
@@ -472,9 +468,23 @@ void ExactLCPk::computeK(){
         size_t limit = start_index + size;
         m_cur_idx_and_limits[i][0].store(start_index);
         m_cur_idx_and_limits[i][1].store(limit);
-        threads[i] = std::thread(&ExactLCPk::launch, this, std::ref(uNodes), std::ref(indices), i, num_cores);
         start_index += size;
         size = 0;
+    }
+    size_t index = 0;
+    size_t inner_index = 0;
+    while(index < indices.size()) {
+        for(size_t i = 0; i < num_cores; ++i){
+            size_t start_index = m_cur_idx_and_limits[i][0].load();
+            size_t limit = m_cur_idx_and_limits[i][1].load();
+            if(inner_index + start_index < limit) {
+                indices[start_index + inner_index] = index++;
+            }
+        }
+        ++inner_index;
+    }
+    for(size_t i = 0; i < num_cores; ++i){
+        threads[i] = std::thread(&ExactLCPk::launch, this, std::ref(uNodes), std::ref(indices), i, num_cores);
     }
     for(size_t i = 0; i < num_cores; ++i){
         threads[i].join();

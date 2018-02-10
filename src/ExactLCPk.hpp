@@ -50,6 +50,13 @@ struct InternalNode{
 
 };
 
+struct less_than_str_depth
+{
+    inline bool operator() (const InternalNode& node1, const InternalNode& node2) {
+        return (node1.m_stringDepth < node2.m_stringDepth);
+    }
+};
+
 struct L1Suffix{
     int32_t m_startPos; // starting position
     int32_t m_errSAPos; // position after one error's SA loc.
