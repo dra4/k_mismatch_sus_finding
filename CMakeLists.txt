@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.8)
 
-set(PROJECT_NAME_STR alfred)
+set(PROJECT_NAME_STR k_mismatch_sus_finding)
 PROJECT(${PROJECT_NAME_STR} C CXX)
 #TODO CHANGE THIS OPTION
 set(CMAKE_VERBOSE_MAKEFILE on)

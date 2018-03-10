@@ -24,7 +24,7 @@ void print_values(const ReadsDB& rdb,
 
 void print_a_b(const ivec_t a, const ivec_t b) {
     std::ofstream ab_out;
-    ab_out.open("alfred_a_b.txt", std::ofstream::out);
+    ab_out.open("a_b.out", std::ofstream::out);
     for(int i = 0; i < a.size(); ++i) {
         ab_out << a[i] << ", " << b[i] << "\n";
     }
@@ -33,7 +33,7 @@ void print_a_b(const ivec_t a, const ivec_t b) {
 
 void print_b(const ivec_t b) {
     std::ofstream b_out;
-    b_out.open("alfred_b.txt", std::ofstream::out);
+    b_out.open("b.out", std::ofstream::out);
     for(int i = 0; i < b.size(); ++i) {
         b_out << b[i] << "\n";
     }

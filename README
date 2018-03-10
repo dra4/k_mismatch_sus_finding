@@ -1,11 +1,11 @@
-# ALFRED :  Alignment Free Distance Estimator
-AlFRED is an Alignment Free Distance Estimator software. Currently, it
-provides the following options :
+A version of the ALFRED implementation released under the Apache License 2.0
+served as the foundation for this k-mismatch shortest unique substring (sus)
+finding implementation. The current homepage of that project is here:
+https://alurulab.cc.gatech.edu/phylo
 
-1. Compute k-mismatch longest common substring using the prefix-chopping
-   algorithm for a pair of sequneces.
-2. Compute k-mistmatch average common substring for every pair of
-   strings present in a database of strings.
+This project has destructively modified that project's source, adapting it to
+instead calculate the rightmost k-mismatch shortest unique substring for each
+index in a given input sequence.
 
 # Installation
 
@@ -14,63 +14,48 @@ provides the following options :
 * A modern, C++11 ready compiler such as `g++` version 4.8 or higher or `clang` version 3.2 or higher.
 * The [cmake](www.cmake.org) build system (Version >= 2.8.11).
 * A 64-bit operating system. Either Mac OS X or Linux are currently supported.
-* Git version control system
+* A cmake supported threading library (pthread).
 
-### Dependices made available with the gz file
-* [googletest](https://code.google.com/p/googletest/) is included as git submodule.
-* [libdivsufsort](https://github.com/y-256/libdivsufsort) libraries are copied in the directory.
+### Dependencies included each with their own respective licenses found in their
+directories:
+libdivsufsort, under ext/libdivsufsort/
+googletest, under ext/googletest/
+sdsl, under src/sdsl/
 
 ## Compilation
 
-Download the alfred.tar.gz file available
-[here](assets/docs/alfred.tar.gz). Extract the contents as follows:
-
-    tar xvzf alfred.tar.gz
-
-Next, create a build directory. For example,
+Create a build directory. For example,
 
      mkdir build
      cd build
 
-Finally, configure and build the executable 'alfred.x'. Continuing the example,
+Configure and build the executable 'k_mismatch_sus_finding.x'. Continuing the example,
 
      cmake ..
      make
 
-If successfully built, alfred.x should be available in the build directory.
+If successfully built, k_mismatch_sus_finding.x should be available in the build directory.
 
 # Usage
 
 ## Preparing Input
 
-Place the input sequences into a single fasta files. Make sure that the
-header of the fasta file has the appropriate sequence name. For example,
-PHYLIP doesn't accept sequence names longer than 10 characters. Also,
-make sure that the input file has one of 'fasta' or 'fa' or 'fas' file
-extension. Note that the program accepts only sequences with valid DNA
-or protien alphabets. An example is as shown below.
+Place the input sequence into a single fasta file. Also, make sure that the
+input file has one of 'fasta' or 'fa' or 'fas' file extension. Note that the
+program accepts only sequences with valid DNA or protein alphabets. An example
+is as shown below.
 
     >SeqName
     ACGTTAGAGTAAATGGAGTAGAAT
 
-## Compute k-mismatch Average common substrings for a string database
-Run the program by providing the pepared input file with -f option,
-the output file with the -o option, and the number of mismatches to allow
-with -k option. An example is shown below:
+## Compute start and ending index for the rightmost k-mismatch sus for each
+index in the input sequence
 
-    build/alfred.x -f primates.full.fas -o acs.primates.k3.out -k 3
+    build/k_mismatch_sus_finding.x -f input.fas -o something.out -k 3 -p
 
-Output is generated in a matrix format, which can be fed directly to PHYLIP
-
-## Compute k-mismatch LCP between two sequences X and Y
-
-Run the program in the same manner shown above, and add the -p option to
-stop after generating the k-mismatch LCP values. An example is shown
-below:
-
-    build/alfred.x -f primates.full.fas -o acs.primates.k3.out -k 3 -p
-
-Output is generated in the json format. json ouput has two arrays, LX
-and LY -- one corresponding to string. The array LX is of the length of
-the string X, where i-th entry of LX has the position of Y and the
-length of longest common substring for the suffix of X starting at i.
+Note that currently the output will always be sent to a file called a_b.out, and
+the format will be such that each line contains the start and end index of the
+rightmost k-mismatch sus for the index of the input sequence that corresponds to
+the line number. Output may also be sent to the specified output file
+(something.out in the example) but this can be ignored and will be cleaned up in
+a future release.
