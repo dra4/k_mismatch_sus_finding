@@ -1,8 +1,0 @@
-(((((('Phaeobacter gallaeciensis 2.10':0.1,
-      'Phaeobacter gallaeciensis BS107':0.1)L13:0.1,
-     'Ruegeria sp. R11':0.1)L12:0.1,
-    ('Roseobacter sp. MED193':0.1,
-     'Roseobacter sp. SK209-2-6':0.1)L12:0.1)L11:0.1,
-  'Rhodobacterales bacterium Y4I':0.1)L10:0.1,
- 'Ruegeria sp. TM1040':0.1)L9:0.1,
-'Ruegeria pomeroyi DSS-3':0.1)INT1:0;
