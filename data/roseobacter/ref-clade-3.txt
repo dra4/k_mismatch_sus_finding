@@ -1,7 +1,0 @@
-(('Oceanicola batsensis HTCC2597':0.1,
-  ('Pelagibaca bermudensis HTCC2601':0.1,
-   'Sagittula stellata E-37':0.1)L9_clade3:0.1)L8_clade3:0.1,
- (('Roseobacter sp. AzwK-3b':0.1,
-   ('Roseovarius sp. TM1035':0.1,
-    'Roseovarius sp. 217':0.1)L10_clade3:0.1)L9_clade3:0.1,
-  'Roseovarius nubinhibins ISM':0.1)L8_clade3:0.1)INT1:0;
