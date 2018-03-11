@@ -55,10 +55,3 @@ target_link_libraries(${PROJECT_TEST_NAME} ${CMAKE_THREAD_LIBS_INIT}
                       gtest gtest_main divsufsort divsufsort64)
 add_test(alfred_test ${PROJECT_TEST_NAME})
 
-# test files
-configure_file(${PROJECT_SOURCE_DIR}/test/banana.fa . COPYONLY)
-configure_file(${PROJECT_SOURCE_DIR}/test/t1.fa . COPYONLY)
-configure_file(${PROJECT_SOURCE_DIR}/test/t2.fa . COPYONLY)
-configure_file(${PROJECT_SOURCE_DIR}/data/primates/C.aethiops.fa . COPYONLY)
-configure_file(${PROJECT_SOURCE_DIR}/data/primates/C.albifrons.fa . COPYONLY)
-# configure_file(${PROJECT_SOURCE_DIR}/test/t2.fq . COPYONLY)
